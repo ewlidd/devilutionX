@@ -2496,8 +2496,16 @@ void AddPlrMonstExper(int lvl, int exp, char pmask)
 	}
 
 	if (totplrs != 0) {
-		int e = exp / totplrs;
-		AddPlrExperience(*MyPlayer, lvl, e);
+		if (*sgOptions.Gameplay.sharedExperience){
+			// Shared experience is enabled. Divide XP by double the total player count for balancing. Minimum 1 XP
+			int e = std::max(exp / (totplrs * 2), 1);
+			AddPlrExperience(*MyPlayer, lvl, e);
+		}else{
+			int e = exp / totplrs;
+			if ((pmask & (1 << MyPlayerId)) != 0)
+				AddPlrExperience(*MyPlayer, lvl, e);
+		}
+
 	}
 }
 
