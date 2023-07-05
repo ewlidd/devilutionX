@@ -2496,12 +2496,12 @@ void AddPlrMonstExper(int lvl, int exp, char pmask)
 	}
 
 	if (totplrs != 0) {
+		int e = exp / totplrs;
 		if (*sgOptions.Gameplay.sharedExperience){
-			// Shared experience is enabled. Divide XP by double the total player count for balancing. Minimum 1 XP
-			int e = std::max(exp / (totplrs * 2), 1);
+			// Shared experience is enabled. Divide by total players and add to character
 			AddPlrExperience(*MyPlayer, lvl, e);
 		}else{
-			int e = exp / totplrs;
+			// FIXME: default implementation divides by total players regardless if the monster was tagged or not by them
 			if ((pmask & (1 << MyPlayerId)) != 0)
 				AddPlrExperience(*MyPlayer, lvl, e);
 		}
