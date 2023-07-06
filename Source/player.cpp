@@ -2503,29 +2503,34 @@ void AddPlrMonstExper(int lvl, int exp, char pmask)
 				if (Players[pnum].isOnActiveLevel() && Players[pnum]._pLevel < MaxCharacterLevel && Players[pnum]._pHitPoints > 0)
 					plrnum++;
 			AddPlrExperience(*MyPlayer, lvl, (exp / plrnum));
-
-		else if(gbIsMultiplayer && *sgOptions.Gameplay.sharedExperience == SharedExperience::Weighted){
+		}else if(gbIsMultiplayer && *sgOptions.Gameplay.sharedExperience == SharedExperience::Weighted){
 			// Shared experience is enabled and in multiplayer. Divide XP weighted between players, favouring lower XP players
-			std::vector<Player *> plrstosharexp(Players.size());
+			std::vector<uint32_t> plrexperarray(Players.size());
 			int sharenum = 0;
 			uint32_t totalplrxp = 0;
-			for (size_t pnum = 0; pnum < Players.size(); pnum++)
+			for (size_t pnum = 0; pnum < Players.size(); pnum++){
 				// is player on the same level, not maximum playerlevel, and not dead
 				if (Players[pnum].isOnActiveLevel() && Players[pnum]._pLevel < MaxCharacterLevel && Players[pnum]._pHitPoints > 0){
 					// divide by number of players to not risk overflowing uint32_t
-					totalplrxp+= ( Players[pnum]._pExperience / Players.size() );
-					plrstosharexp[sharenum] = &Players[pnum];
+					totalplrxp+= std::max(static_cast<int>( Players[pnum]._pExperience / Players.size() ), 1);
+					plrexperarray[sharenum] = Players[pnum]._pExperience;
 					sharenum++;
 				}
+			}
 			// if we are sharing XP between more than one player, calculate weighting
 			if(sharenum > 1){
 				// calculate total XP weighting between players
 				float totalweight = 0.f;
 				for (size_t pnum = 0; pnum < sharenum; pnum++){
-					totalweight += totalplrxp / std::max(plrstosharexp[pnum]._pExperience / Players.size(), 1);
+					// avoid dividing by 0, and also adjust to totalplrxp division
+					uint32_t adjustedexp = std::max(static_cast<int>( plrexperarray[pnum] / Players.size()), 1 );
+					totalweight += totalplrxp / adjustedexp;
 				}
 				// add weighted XP
-				int e = std::round(exp * ( (totalplrxp / std::max((MyPlayer._pExperience/Players.size()), 1)) / totalweight))
+				Player &myPlayer = *MyPlayer;
+				// avoid dividing by 0, and also adjust to totalplrxp division
+				uint32_t adjustedexp = std::max(static_cast<int>( myPlayer._pExperience / Players.size()), 1 );
+				int e = std::round(exp * ((totalplrxp / adjustedexp) / totalweight));
 				AddPlrExperience(*MyPlayer, lvl, e);
 			}else{
 				// Only one player is applicable. Add XP to player
