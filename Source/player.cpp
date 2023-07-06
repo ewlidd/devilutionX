@@ -2496,13 +2496,42 @@ void AddPlrMonstExper(int lvl, int exp, char pmask)
 	}
 
 	if (totplrs != 0) {
-		if (gbIsMultiplayer && *sgOptions.Gameplay.sharedExperience){
-			// Shared experience is enabled and in multiplayer. Divide XP; players that are on the same level, not maxlevel and not dead
+		if (gbIsMultiplayer && *sgOptions.Gameplay.sharedExperience == SharedExperience::Equal){
+			// Shared experience is enabled and in multiplayer. Divide XP equally between players that are on the same level, not maxlevel and not dead
 			int plrnum = 0;
 			for (size_t pnum = 0; pnum < Players.size(); pnum++)
 				if (Players[pnum].isOnActiveLevel() && Players[pnum]._pLevel < MaxCharacterLevel && Players[pnum]._pHitPoints > 0)
 					plrnum++;
 			AddPlrExperience(*MyPlayer, lvl, (exp / plrnum));
+
+		else if(gbIsMultiplayer && *sgOptions.Gameplay.sharedExperience == SharedExperience::Weighted){
+			// Shared experience is enabled and in multiplayer. Divide XP weighted between players, favouring lower XP players
+			std::vector<Player *> plrstosharexp(Players.size());
+			int sharenum = 0;
+			uint32_t totalplrxp = 0;
+			for (size_t pnum = 0; pnum < Players.size(); pnum++)
+				// is player on the same level, not maximum playerlevel, and not dead
+				if (Players[pnum].isOnActiveLevel() && Players[pnum]._pLevel < MaxCharacterLevel && Players[pnum]._pHitPoints > 0){
+					// 16 players total, so divide by 16 to not overflow uint32_t
+					totalplrxp+= ( Players[pnum]._pExperience / 16 );
+					plrstosharexp[sharenum] = &Players[pnum];
+					sharenum++;
+				}
+			// if we are sharing XP between more than one player, calculate weighting
+			if(sharenum > 1){
+				// calculate total XP weighting between players
+				float totalweight = 0.f;
+				for (size_t pnum = 0; pnum < sharenum; pnum++){
+					totalweight += totalplrxp / std::max((plrstosharexp[pnum]._pExperience / 16), 1);
+				}
+				// add weighted XP
+				int e = std::round(exp * ( (totalplrxp / std::max((MyPlayer._pExperience/16), 1)) / totalweight))
+				AddPlrExperience(*MyPlayer, lvl, e);
+			}else{
+				// Only one player is applicable. Add XP to player
+				AddPlrExperience(*MyPlayer, lvl, exp);
+			}
+					
 		}else{
 			int e = exp / totplrs;
 			if ((pmask & (1 << MyPlayerId)) != 0)

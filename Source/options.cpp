@@ -1086,7 +1086,12 @@ GameplayOptions::GameplayOptions()
               { FloatingNumbers::Random, N_("Random Angles") },
               { FloatingNumbers::Vertical, N_("Vertical Only") },
           })
-	, sharedExperience("Shared Multiplayer XP", OptionEntryFlags::None, N_("Shared Multiplayer XP"), N_("You get evenly shared XP from all players in the same dungeon level as you"), false)
+	, sharedExperience("Shared Multiplayer XP", OptionEntryFlags::None, N_("Shared Multiplayer XP"), N_("You get shared XP from all players in the same dungeon level as you"), SharedExperience::Off,
+          {
+              { SharedExperience::Off, N_("Off") },
+              { SharedExperience::Equal, N_("Equally divided") },
+              { SharedExperience::Weighted, N_("Weighted towards players with lower XP") },
+          })
 {
 	grabInput.SetValueChangedCallback(OptionGrabInputChanged);
 	experienceBar.SetValueChangedCallback(OptionExperienceBarChanged);

@@ -69,6 +69,15 @@ enum class FloatingNumbers : uint8_t {
 	Vertical = 2,
 };
 
+enum class SharedExperience : uint8_t {
+	/** @brief Default behavior for gaining experience on monster death */
+	Off = 0,
+	/** @brief Divide XP equally between applicable players */
+	Equal = 1,
+	/** @brief Divide weighted XP towards players with lower XP */
+	Weighted = 2,
+};
+
 enum class OptionEntryType : uint8_t {
 	Boolean,
 	List,
