@@ -2512,8 +2512,8 @@ void AddPlrMonstExper(int lvl, int exp, char pmask)
 			for (size_t pnum = 0; pnum < Players.size(); pnum++)
 				// is player on the same level, not maximum playerlevel, and not dead
 				if (Players[pnum].isOnActiveLevel() && Players[pnum]._pLevel < MaxCharacterLevel && Players[pnum]._pHitPoints > 0){
-					// 16 players total, so divide by 16 to not overflow uint32_t
-					totalplrxp+= ( Players[pnum]._pExperience / 16 );
+					// divide by number of players to not risk overflowing uint32_t
+					totalplrxp+= ( Players[pnum]._pExperience / Players.size() );
 					plrstosharexp[sharenum] = &Players[pnum];
 					sharenum++;
 				}
@@ -2522,10 +2522,10 @@ void AddPlrMonstExper(int lvl, int exp, char pmask)
 				// calculate total XP weighting between players
 				float totalweight = 0.f;
 				for (size_t pnum = 0; pnum < sharenum; pnum++){
-					totalweight += totalplrxp / std::max((plrstosharexp[pnum]._pExperience / 16), 1);
+					totalweight += totalplrxp / std::max(plrstosharexp[pnum]._pExperience / Players.size(), 1);
 				}
 				// add weighted XP
-				int e = std::round(exp * ( (totalplrxp / std::max((MyPlayer._pExperience/16), 1)) / totalweight))
+				int e = std::round(exp * ( (totalplrxp / std::max((MyPlayer._pExperience/Players.size()), 1)) / totalweight))
 				AddPlrExperience(*MyPlayer, lvl, e);
 			}else{
 				// Only one player is applicable. Add XP to player
