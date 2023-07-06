@@ -2497,11 +2497,13 @@ void AddPlrMonstExper(int lvl, int exp, char pmask)
 
 	if (totplrs != 0) {
 		if (gbIsMultiplayer && *sgOptions.Gameplay.sharedExperience){
-			// Shared experience is enabled. Divide by 3 as a temp fix...
-			int e = exp / 3;
-			AddPlrExperience(*MyPlayer, lvl, e);
+			// Shared experience is enabled and in multiplayer. Divide XP; players that are on the same level, not maxlevel and not dead
+			int plrnum = 0;
+			for (size_t pnum = 0; pnum < Players.size(); pnum++)
+				if (Players[pnum].isOnActiveLevel() && Players[pnum]._pLevel < MaxCharacterLevel && Players[pnum]._pHitPoints > 0)
+					plrnum++;
+			AddPlrExperience(*MyPlayer, lvl, (exp / plrnum));
 		}else{
-			// FIXME: default implementation divides by total players regardless if the monster was tagged or not by them
 			int e = exp / totplrs;
 			if ((pmask & (1 << MyPlayerId)) != 0)
 				AddPlrExperience(*MyPlayer, lvl, e);
