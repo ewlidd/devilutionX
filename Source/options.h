@@ -606,7 +606,7 @@ struct GameplayOptions : OptionCategoryBase {
 	/** @brief Enable floating numbers. */
 	OptionEntryEnum<FloatingNumbers> enableFloatingNumbers;
 	/** @brief Enable sharing of XP between players  */
-	OptionEntryBoolean sharedExperience;
+	OptionEntryEnum<SharedExperience> sharedExperience;
 };
 
 struct ControllerOptions : OptionCategoryBase {
