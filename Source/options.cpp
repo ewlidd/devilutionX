@@ -1090,7 +1090,9 @@ GameplayOptions::GameplayOptions()
           {
               { SharedExperience::Off, N_("Off") },
               { SharedExperience::Equal, N_("Equally divided") },
-              { SharedExperience::Weighted, N_("Weighted towards players with lower XP") },
+              { SharedExperience::LightWeighting, N_("Light weighting") },
+			  { SharedExperience::MediumWeighting, N_("Medium weighting") },
+			  { SharedExperience::HeavyWeighting, N_("Heavy weighting") },
           })
 {
 	grabInput.SetValueChangedCallback(OptionGrabInputChanged);

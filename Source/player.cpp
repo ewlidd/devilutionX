@@ -2486,6 +2486,11 @@ void AddPlrExperience(Player &player, int lvl, int exp)
 	NetSendCmdParam1(false, CMD_PLRLEVEL, player._pLevel);
 }
 
+uint32_t ScaleExperience(uint32_t exp)
+{
+	return std::round(std::max(static_cast<int>( exp / MAX_PLRS ), 1));
+}
+
 void AddPlrMonstExper(int lvl, int exp, char pmask)
 {
 	int totplrs = 0;
@@ -2496,54 +2501,109 @@ void AddPlrMonstExper(int lvl, int exp, char pmask)
 	}
 
 	if (totplrs != 0) {
+		// shared XP enabled
+		if(gbIsMultiplayer && *sgOptions.Gameplay.sharedExperience != SharedExperience::Off ){
+			// exponent=0 is no weighting. Equal XP
+			float exponent=0.0;
+			if (*sgOptions.Gameplay.sharedExperience == SharedExperience::HeavyWeighting){
+				exponent = 1; // linear (heaviest) weighting to player with lowest XP
+			}else if (*sgOptions.Gameplay.sharedExperience == SharedExperience::MediumWeighting){
+				exponent = 0.5; // medium weighting
+			}else if (*sgOptions.Gameplay.sharedExperience == SharedExperience::LightWeighting){
+				exponent = 0.25; // light weighting
+			}
+
+			// count applicable players for splitting XP. Add to totalXP counter
+			std::vector<uint32_t> scaledplrexperarray(Players.size());
+			int snum = 0;
+			uint32_t scaledtotalplrxp = 0;
+			for (size_t pnum = 0; pnum < Players.size(); pnum++){
+				// is player on the same level, not maximum playerlevel, and not dead
+				if (Players[pnum].isOnActiveLevel() && Players[pnum]._pLevel < MaxCharacterLevel && Players[pnum]._pHitPoints > 0){
+					// scale down XP, add to total count, add xp to array for later weight calculation
+					uint32_t scaledplrexp = ScaleExperience(Players[pnum]._pExperience);
+					scaledtotalplrxp+= scaledplrexp;
+					scaledplrexperarray[snum] = scaledplrexp;
+					snum++;
+				}
+			}
+			if(snum > 1){
+				// more than one player to share XP
+				float totalweight = 0.0f;
+				Player &myPlayer = *MyPlayer;
+				// calculate total XP weighting between players
+				for (size_t pnum = 0; pnum < snum; pnum++)
+					totalweight += std::pow(scaledtotalplrxp / scaledplrexperarray[pnum], exponent);
+				int e = std::rint(exp * (std::pow(scaledtotalplrxp / ScaleExperience(myPlayer._pExperience),exponent) / totalweight));
+				AddPlrExperience(*MyPlayer, lvl, e);
+			}else{
+				// only one player applicable to share xp
+				AddPlrExperience(*MyPlayer, lvl, exp);
+			}
+		}else{
+			// default behaviour
+			int e = exp / totplrs;
+			if ((pmask & (1 << MyPlayerId)) != 0)
+				AddPlrExperience(*MyPlayer, lvl, e);
+		}
+	}
+
+/*
 		if (gbIsMultiplayer && *sgOptions.Gameplay.sharedExperience == SharedExperience::Equal){
 			// Shared experience is enabled and in multiplayer. Divide XP equally between players that are on the same level, not maxlevel and not dead
 			int plrnum = 0;
 			for (size_t pnum = 0; pnum < Players.size(); pnum++)
 				if (Players[pnum].isOnActiveLevel() && Players[pnum]._pLevel < MaxCharacterLevel && Players[pnum]._pHitPoints > 0)
 					plrnum++;
-			AddPlrExperience(*MyPlayer, lvl, (exp / plrnum));
-		}else if(gbIsMultiplayer && *sgOptions.Gameplay.sharedExperience == SharedExperience::Weighted){
-			// Shared experience is enabled and in multiplayer. Divide XP weighted between players, favouring lower XP players
-			std::vector<uint32_t> plrexperarray(Players.size());
-			int sharenum = 0;
-			uint32_t totalplrxp = 0;
+			AddPlrExperience(*MyPlayer, lvl, std::rint(exp / plrnum));
+		}else if(gbIsMultiplayer && *sgOptions.Gameplay.sharedExperience != SharedExperience::None ){
+			// Shared experience is enabled and in multiplayer. Divide XP weighted between players
+			std::vector<uint32_t> scaledplrexperarray(Players.size());
+			int snum = 0;
+			uint32_t scaledtotalplrxp = 0;
 			for (size_t pnum = 0; pnum < Players.size(); pnum++){
 				// is player on the same level, not maximum playerlevel, and not dead
 				if (Players[pnum].isOnActiveLevel() && Players[pnum]._pLevel < MaxCharacterLevel && Players[pnum]._pHitPoints > 0){
-					// divide by number of players to not risk overflowing uint32_t
-					totalplrxp+= std::max(static_cast<int>( Players[pnum]._pExperience / Players.size() ), 1);
-					plrexperarray[sharenum] = Players[pnum]._pExperience;
-					sharenum++;
+					// scale down XP, add to total count, add xp to array for weight calculation
+					uint32_t scaledplrexp = ScaleExperience(Players[pnum]._pExperience);
+					scaledtotalplrxp+= scaledplrexp;
+					scaledplrexperarray[snum] = scaledplrexp;
+					snum++;
 				}
 			}
+			std::cout << "weighted exp: snum=" << snum << std::endl << "weighted exp: scaledtotalplrxp=" << scaledtotalplrxp << std::endl;
 			// if we are sharing XP between more than one player, calculate weighting
-			if(sharenum > 1){
+			if(snum > 1){
 				// calculate total XP weighting between players
-				float totalweight = 0.f;
-				for (size_t pnum = 0; pnum < sharenum; pnum++){
-					// avoid dividing by 0, and also adjust to totalplrxp division
-					uint32_t adjustedexp = std::max(static_cast<int>( plrexperarray[pnum] / Players.size()), 1 );
-					totalweight += totalplrxp / adjustedexp;
-				}
-				// add weighted XP
+				float totalweight = 0.0f;
 				Player &myPlayer = *MyPlayer;
-				// avoid dividing by 0, and also adjust to totalplrxp division
-				uint32_t adjustedexp = std::max(static_cast<int>( myPlayer._pExperience / Players.size()), 1 );
-				int e = std::round(exp * ((totalplrxp / adjustedexp) / totalweight));
+				int e = 0;
+				if(*sgOptions.Gameplay.sharedExperience == SharedExperience::WeightedLinear){
+					for (size_t pnum = 0; pnum < snum; pnum++)
+						totalweight += scaledtotalplrxp / scaledplrexperarray[pnum];
+					e = std::rint(exp * ((scaledtotalplrxp / ScaleExperience(myPlayer._pExperience)) / totalweight));
+				}else if(*sgOptions.Gameplay.sharedExperience == SharedExperience::WeightedLogarithmic){
+					for (size_t pnum = 0; pnum < snum; pnum++)
+						totalweight += std::log10(scaledtotalplrxp / scaledplrexperarray[pnum]);
+					e = std::rint(exp * std::log10((scaledtotalplrxp / ScaleExperience(myPlayer._pExperience)) / totalweight));
+				}else if(*sgOptions.Gameplay.sharedExperience == SharedExperience::WeightedSqrt){
+					for (size_t pnum = 0; pnum < snum; pnum++)
+						totalweight += std::sqrt(scaledtotalplrxp / scaledplrexperarray[pnum]);
+					e = std::rint(exp * std::sqrt((scaledtotalplrxp / ScaleExperience(myPlayer._pExperience)) / totalweight));
+				}
+				// Add weighted xp
 				AddPlrExperience(*MyPlayer, lvl, e);
 			}else{
 				// Only one player is applicable. Add XP to player
 				AddPlrExperience(*MyPlayer, lvl, exp);
 			}
-					
 		}else{
 			int e = exp / totplrs;
 			if ((pmask & (1 << MyPlayerId)) != 0)
 				AddPlrExperience(*MyPlayer, lvl, e);
 		}
-
 	}
+	*/
 }
 
 void InitPlayer(Player &player, bool firstTime)

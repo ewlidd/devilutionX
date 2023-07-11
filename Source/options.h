@@ -74,8 +74,12 @@ enum class SharedExperience : uint8_t {
 	Off = 0,
 	/** @brief Divide XP equally between applicable players */
 	Equal = 1,
-	/** @brief Divide weighted XP towards players with lower XP */
-	Weighted = 2,
+	/** @brief Light weighting towards players with lower XP */
+	LightWeighting = 2,
+	/** @brief Medium weighting towards players with lower XP */
+	MediumWeighting = 3,
+	/** @brief Heavy weighting towards players with lower XP */
+	HeavyWeighting = 4,
 };
 
 enum class OptionEntryType : uint8_t {
